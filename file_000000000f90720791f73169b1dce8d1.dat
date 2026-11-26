@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IRLZ44N Wireless TX Coil Driver — Complete Build Guide</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #222; padding: 20px; line-height: 1.6; }
+  .container { max-width: 960px; margin: 0 auto; }
+  
+  .header { background: linear-gradient(135deg, #1a237e, #283593); color: #fff; padding: 30px 40px; border-radius: 12px 12px 0 0; }
+  .header h1 { font-size: 26px; margin-bottom: 4px; }
+  .header p { opacity: 0.85; font-size: 14px; }
+  
+  section { background: #fff; padding: 26px 34px; margin: 0; border-bottom: 1px solid #e0e0e0; }
+  section:last-of-type { border-radius: 0 0 12px 12px; border-bottom: none; }
+  
+  h2 { color: #1a237e; font-size: 20px; margin-bottom: 14px; padding-bottom: 6px; border-bottom: 2px solid #e8eaf6; }
+  h3 { color: #283593; font-size: 16px; margin: 18px 0 8px; }
+  h4 { color: #455a64; font-size: 14px; margin: 14px 0 6px; }
+  p, li { font-size: 14px; color: #444; }
+  ul, ol { padding-left: 22px; margin: 10px 0; }
+  li { margin: 4px 0; }
+  
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+  th, td { padding: 8px 12px; text-align: left; border: 1px solid #ddd; }
+  th { background: #e8eaf6; color: #1a237e; font-weight: 600; }
+  tr:nth-child(even) { background: #fafafa; }
+  
+  .callout { padding: 12px 18px; border-radius: 8px; margin: 14px 0; font-size: 14px; }
+  .info { background: #e3f2fd; border-left: 5px solid #1976d2; }
+  .warn { background: #fff3e0; border-left: 5px solid #f57c00; }
+  .danger { background: #ffebee; border-left: 5px solid #d32f2f; }
+  .good { background: #e8f5e9; border-left: 5px solid #388e3c; }
+  
+  .code { background: #263238; color: #a5d6a7; padding: 16px 20px; border-radius: 6px; font-family: 'Consolas','Courier New',monospace; font-size: 12.5px; overflow-x: auto; margin: 12px 0; line-height: 1.5; white-space: pre-wrap; }
+  
+  .diagram { background: #fafafa; border: 2px dashed #bbb; border-radius: 8px; padding: 20px; text-align: center; margin: 12px 0; font-family: 'Consolas', monospace; font-size: 11px; overflow-x: auto; line-height: 1.35; white-space: pre; }
+  
+  .pin-box { display: inline-block; background: #e8eaf6; border-radius: 6px; padding: 12px 20px; margin: 8px 0; font-size: 14px; text-align: center; }
+  .pin-box b { color: #1a237e; }
+  
+  code { background: #e8eaf6; padding: 1px 5px; border-radius: 3px; font-size: 13px; }
+  
+  .checklist { list-style: none; padding: 0; }
+  .checklist li { padding: 6px 0; display: flex; align-items: flex-start; gap: 8px; }
+  .checklist li::before { content: "☐ "; font-size: 18px; flex-shrink: 0; }
+  
+  .step { background: #f5f7fa; border-left: 4px solid #1976d2; padding: 14px 18px; margin: 14px 0; border-radius: 0 6px 6px 0; }
+  .step strong { color: #1976d2; font-size: 15px; }
+  
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .tag-blue { background: #e3f2fd; color: #1565c0; }
+  .tag-green { background: #e8f5e9; color: #2e7d32; }
+  .tag-orange { background: #fff3e0; color: #e65100; }
+  .tag-red { background: #ffebee; color: #c62828; }
+  
+  @media print { body { background: #fff; padding: 0; } section { box-shadow: none; page-break-inside: avoid; } .header { border-radius: 0; } }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- ====== HEADER ====== -->
+<div class="header">
+  <h1>🔌 IRLZ44N Wireless TX Coil Driver</h1>
+  <p>Complete Build Guide — ESP32 @ 1 MHz, IRLZ44N direct drive, 18–20 AWG coils, 5–12W</p>
+  <p style="margin-top:6px;"><strong>RX Side:</strong> Battery + filament LED only (no extra components)</p>
+</div>
+
+<!-- ====== 1. OVERVIEW ====== -->
+<section>
+<h2>1. System Overview</h2>
+
+<h3>How It Works</h3>
+<ol>
+  <li><b>ESP32</b> generates a <b>1 MHz PWM</b> signal on GPIO 2</li>
+  <li>Signal goes through <b>100Ω resistor</b> to Gate of <b>IRLZ44N</b> (logic-level MOSFET)</li>
+  <li>IRLZ44N turns <b>fully ON at 3.3V</b> — <i>no gate driver needed</i></li>
+  <li>MOSFET switches the <b>LC tank</b> (coil + capacitor) at 1 MHz</li>
+  <li>At resonance, the coil generates a <b>strong 1 MHz magnetic field</b></li>
+  <li>The <b>battery + LED loop</b> on the RX side acts as a single-turn receiver coil</li>
+  <li>Faraday induction adds an AC voltage → LED gets <b>brighter</b></li>
+</ol>
+
+<h3>Key Advantages of IRLZ44N</h3>
+<table>
+  <tr><th>MOSFET</th><th>Type</th><th>Vgs(th)</th><th>Fully ON at</th><th>Direct from ESP32?</th></tr>
+  <tr><td><b>IRLZ44N</b> ✅</td><td>Logic-level N-Ch</td><td>1–2 V</td><td><b>3.3–5 V</b></td><td><b>✅ YES</b></td></tr>
+  <tr><td>IRFZ44N</td><td>Standard N-Ch</td><td>2–4 V</td><td>~10 V</td><td>❌ Needs extra driver</td></tr>
+  <tr><td>IRF520</td><td>Standard N-Ch</td><td>2–4 V</td><td>~10 V</td><td>❌ Needs extra driver</td></tr>
+</table>
+</section>
+
+<!-- ====== 2. COMPLETE BOM ====== -->
+<section>
+<h2>2. Bill of Materials (BOM)</h2>
+
+<h3>2.1 Essential Components</h3>
+<table>
+  <tr><th>#</th><th>Item</th><th>Spec / Value</th><th>Qty</th><th>Notes</th></tr>
+  <tr><td>1</td><td>ESP32 Dev Board</td><td>Any (NodeMCU-32S, DOIT, etc.)</td><td>1</td><td>USB powered</td></tr>
+  <tr><td>2</td><td><b>IRLZ44N</b> MOSFET</td><td>TO-220, 55V / 47A, Logic-level</td><td>1</td><td>⭐ The key part</td></tr>
+  <tr><td>3</td><td>100Ω Resistor</td><td>¼W carbon film</td><td>1</td><td>Gate series resistor</td></tr>
+  <tr><td>4</td><td>10kΩ Resistor</td><td>¼W carbon film</td><td>1</td><td>Gate pull-down to GND</td></tr>
+  <tr><td>5</td><td>Tuning Capacitor</td><td>See Section 4 for value</td><td>1+</td><td>Polypropylene or C0G/NP0 ceramic</td></tr>
+  <tr><td>6</td><td>TX Coil</td><td>18 or 20 AWG magnet wire</td><td>1</td><td>See Section 4 for specs</td></tr>
+  <tr><td>7</td><td>Non-polarized Filament LED</td><td>AC/DC compatible</td><td>1</td><td>Two reverse-parallel dies</td></tr>
+  <tr><td>8</td><td>Battery (RX side)</td><td>3.7–12V NiMH / NiCd / Alkaline</td><td>1</td><td>⚠️ NO Li-ion without BMS!</td></tr>
+  <tr><td>9</td><td>Hook-up wire (RX loop)</td><td>22 AWG, ~30 cm</td><td>1</td><td>For battery ↔ LED connections</td></tr>
+  <tr><td>10</td><td>USB Cable</td><td>Micro-USB or USB-C</td><td>1</td><td>Data + power for ESP32</td></tr>
+  <tr><td>11</td><td>External DC Power Supply</td><td><b>5–12V DC, ≥1–3A</b></td><td>1</td><td>See Section 7 for sizing</td></tr>
+</table>
+
+<h3>2.2 Optional but Recommended</h3>
+<table>
+  <tr><th>Item</th><th>Spec</th><th>Why</th></tr>
+  <tr><td>100 µF Electrolytic Cap</td><td>25V or 50V</td><td>Bulk decoupling on the supply input — reduces ripple, stabilizes MOSFET switching</td></tr>
+  <tr><td>0.1 µF (100 nF) Ceramic Cap</td><td>50V, any dielectric</td><td>High-frequency bypass — place close to MOSFET Drain/Source</td></tr>
+  <tr><td>Trimmer Capacitor</td><td>50–200 pF ceramic trimmer</td><td>Fine-tune resonance by turning a screw — no need to swap caps</td></tr>
+  <tr><td>1N4148 Fast Diode</td><td>Standard signal diode</td><td>Flyback protection across the coil (Drain to +V, cathode to +V)</td></tr>
+  <tr><td>Heatsink</td><td>TO-220 clip-on</td><td>IRLZ44N gets warm at 5–12W — highly recommended for runs &gt;30s</td></tr>
+  <tr><td>Breadboard + Jumpers</td><td>Half-size + M-M wires</td><td>For prototyping before soldering</td></tr>
+  <tr><td>Multimeter</td><td>Digital, any</td><td>Continuity checks, voltage measurements</td></tr>
+  <tr><td>Oscilloscope (if available)</td><td>Any 10MHz+ scope</td><td>See the resonance peak directly — tune for max Vpp across coil</td></tr>
+</table>
+
+<div class="callout good">
+<strong>⭐ Minimum Viable Parts:</strong> ESP32 + IRLZ44N + 100Ω + 10kΩ + tuning cap + coil + battery + LED. That's it.
+</div>
+</section>
+
+<!-- ====== 3. PIN CONFIG & SCHEMATIC ====== -->
+<section>
+<h2>3. Pin Configuration &amp; Full Schematic</h2>
+
+<h3>3.1 IRLZ44N Pinout (TO-220)</h3>
+<div class="diagram">
+         ┌─────────────────────┐
+         │                     │
+         │     IRLZ44N         │
+         │                     │
+         │  Left    Center   Right │
+         │  Gate    Drain    Source│
+         │   (G)     (D)      (S) │
+         │                     │
+         └────────┬────┬───────┘
+                  │    │
+                  │    └── Metal tab = Drain (D)
+                  │
+            Flat face toward you
+</div>
+
+<table>
+  <tr><th>IRLZ44N Pin</th><th>Label</th><th>Connects To</th></tr>
+  <tr><td><b>Left</b></td><td><b>Gate (G)</b></td><td>100Ω resistor from ESP32 GPIO 2 + 10kΩ resistor to GND</td></tr>
+  <tr><td><b>Center</b></td><td><b>Drain (D)</b></td><td>One end of TX coil + one leg of tuning capacitor</td></tr>
+  <tr><td><b>Right</b></td><td><b>Source (S)</b></td><td>Common GND</td></tr>
+</table>
+
+<h3>3.2 Complete Schematic</h3>
+<div class="diagram">
+                     ┌─────────────────────────────────┐
+                     │      EXTERNAL DC SUPPLY         │
+                     │      5V – 12V DC, ≥1–3A         │
+                     │                                 │
+                     │  (+) ───────────────────────────┼──┐
+                     │  (-) ───────────────────────────┼──┤
+                     └─────────────────────────────────┘  │
+                                                           │
+                       ┌──── 100µF ───── 0.1µF ───── GND  │
+                       │   (bulk)     (bypass)             │
+                       │                                   │
+                       └───────────────────────────────────┤
+                                                           │
+                                                      ┌────┴──────┐
+                                                      │           │
+                                                  TX COIL ───┬───┘
+                                                  (18/20 AWG) │
+                                                      │       │
+                                                      │  CAP  │
+                                                      │ (tune)│
+                                                      │       │
+                                                      └───┬───┘
+                                                          │
+                                                     ┌────┴──────┐
+                                                     │           │
+                                                     │  IRLZ44N  │
+                                                     │           │
+                                                G ───┤           │
+                                                     │    D      ├── (to coil+cap junction)
+                                                     │           │
+                                                S ───┤           │
+                                                     │           │
+                                                     └────┬──────┘
+                                                          │
+                                                         GND
+                                                          │
+                    ┌──────────────────────────────────────┘
+                    │
+                    │      ┌──────────┐
+                    │      │  100Ω    │
+                    │      └────┬─────┘
+                    │           │
+                    │      ┌────┴──────┐
+                    │      │  10kΩ     │
+                    │      └────┬──────┘
+                    │           │
+                    │          GND
+                    │
+               ┌────┴─────────────────────────────────────┐
+               │                  ESP32                   │
+               │  GPIO 2 ─────────┤ ├─────────────────────┤
+               │  GND  ───────────┤ ├─────────────────────┘
+               └──────────────────────────────────────────┘
+</div>
+
+<h3>3.3 Wire Connection Table</h3>
+<table>
+  <tr><th>From</th><th>To</th><th>Wire / Component</th><th>Notes</th></tr>
+  <tr><td>ESP32 GPIO 2</td><td>100Ω resistor</td><td>Jumper wire</td><td>Signal path</td></tr>
+  <tr><td>100Ω resistor</td><td>Gate of IRLZ44N</td><td>Resistor lead</td><td>⛔ Never skip this resistor!</td></tr>
+  <tr><td>Gate of IRLZ44N</td><td>GND</td><td>10kΩ resistor</td><td>Pull-down — keeps MOSFET OFF during boot</td></tr>
+  <tr><td>Source of IRLZ44N</td><td>GND</td><td>Thick wire</td><td>Use 18–22 AWG for power handling</td></tr>
+  <tr><td>Drain of IRLZ44N</td><td>Coil End 1 + Cap Leg 1</td><td>Solder joint</td><td>All three joined together</td></tr>
+  <tr><td>Coil End 2</td><td>+V of external supply</td><td>Thick wire</td><td>Power feed</td></tr>
+  <tr><td>Cap Leg 2</td><td>GND</td><td>Wire</td><td>Completes the LC tank</td></tr>
+  <tr><td>External PSU (−)</td><td>GND</td><td>Thick wire</td><td>Common ground</td></tr>
+  <tr><td>ESP32 GND</td><td>GND</td><td>Jumper wire</td><td>Must connect to same ground</td></tr>
+  <tr><td>Battery (+)</td><td>Filament LED (+ side)</td><td>~15 cm wire</td><td>RX loop — keep ~10 cm diameter</td></tr>
+  <tr><td>Filament LED (− side)</td><td>Battery (−)</td><td>~15 cm wire</td><td>RX loop — closes the circuit</td></tr>
+</table>
+</section>
+
+<!-- ====== 4. COIL & CAPACITOR TABLES ====== -->
+<section>
+<h2>4. Coil &amp; Capacitor Selection Tables</h2>
+
+<h3>4.1 Wire Gauge Reference</h3>
+<table>
+  <tr><th>AWG</th><th>Diameter (mm)</th><th>Resistance (Ω/m)</th><th>Current Rating</th><th>Suitability</th></tr>
+  <tr><td><b>18</b> ⭐</td><td>1.024</td><td>0.021</td><td>~3.5 A</td><td><b>Excellent</b> — lowest loss, best for 12W</td></tr>
+  <tr><td><b>20</b> ⭐</td><td>0.812</td><td>0.033</td><td>~2.5 A</td><td><b>Excellent</b> — best balance, easy to wind</td></tr>
+  <tr><td>22</td><td>0.644</td><td>0.053</td><td>~1.7 A</td><td>Good — works fine up to 8W</td></tr>
+  <tr><td>24</td><td>0.511</td><td>0.084</td><td>~1.2 A</td><td>OK — use up to 5–6W</td></tr>
+  <tr><td>26</td><td>0.405</td><td>0.134</td><td>~0.8 A</td><td>Fair — higher loss, lower power</td></tr>
+  <tr><td>30+</td><td>&lt;0.255</td><td>&gt;0.339</td><td>&lt;0.3 A</td><td>Poor — too resistive for &gt;1W</td></tr>
+</table>
+
+<h3>4.2 Coil Designs — 18 AWG (Ready-made or self-wound)</h3>
+<table>
+  <tr><th>Turns</th><th>OD (cm)</th><th>ID (cm)</th><th>L (μH)</th><th>C for 1 MHz</th><th>Q (est.)</th><th>Max Power</th></tr>
+  <tr><td><b>10 T</b></td><td><b>5</b></td><td>~2</td><td><b>~5–7</b></td><td><b>4700–5600 pF</b></td><td>~80</td><td>12 W ✅</td></tr>
+  <tr><td>10 T</td><td>7</td><td>~3</td><td>~10–13</td><td>2200–3300 pF</td><td>~90</td><td>12 W ✅</td></tr>
+  <tr><td>10 T</td><td>10</td><td>~4</td><td>~18–22</td><td>1200–1500 pF</td><td>~95</td><td>12 W ✅</td></tr>
+  <tr><td>8 T</td><td>10</td><td>~4</td><td>~12–14</td><td>1800–2200 pF</td><td>~85</td><td>12 W ✅</td></tr>
+  <tr><td>12 T</td><td>10</td><td>~4</td><td>~26–30</td><td>820–1000 pF</td><td>~100</td><td>12 W ✅</td></tr>
+</table>
+
+<h3>4.3 Coil Designs — 20 AWG (Self-wound)</h3>
+<table>
+  <tr><th>Turns</th><th>OD (cm)</th><th>ID (cm)</th><th>L (μH)</th><th>C for 1 MHz</th><th>Q (est.)</th><th>Max Power</th></tr>
+  <tr><td><b>10 T</b></td><td><b>5</b></td><td>~2</td><td><b>~5–7</b></td><td><b>4700–5600 pF</b></td><td>~60</td><td>10 W ✅</td></tr>
+  <tr><td>10 T</td><td>7</td><td>~3</td><td>~10–13</td><td>2200–3300 pF</td><td>~70</td><td>10 W ✅</td></tr>
+  <tr><td><b>10 T</b></td><td><b>10</b></td><td>~4</td><td><b>~18–22</b></td><td><b>1200–1500 pF</b></td><td>~75</td><td>10 W ✅</td></tr>
+  <tr><td>8 T</td><td>10</td><td>~4</td><td>~12–14</td><td>1800–2200 pF</td><td>~65</td><td>8 W ✅</td></tr>
+  <tr><td>12 T</td><td>10</td><td>~4</td><td>~26–30</td><td>820–1000 pF</td><td>~80</td><td>10 W ✅</td></tr>
+</table>
+
+<h3>4.4 Your Specific Setup: 18 AWG, 10 T, 5 cm OD</h3>
+<div class="callout good">
+<strong>⭐ Exact Values for Your Coil:</strong><br>
+<b>Inductance:</b> ~5–7 μH<br>
+<b>Capacitor for 1 MHz:</b> <b>4700 pF (4.7 nF)</b> — try 4700 pF first, then 3300 pF, 5600 pF<br>
+<b>Q factor:</b> ~80 (excellent!)<br>
+<b>Max power:</b> 12 W ✅
+</div>
+
+<h3>4.5 Capacitor Type Guide</h3>
+<table>
+  <tr><th>Type</th><th>Loss at 1 MHz</th><th>Rating</th><th>Use?</th></tr>
+  <tr><td><b>Polypropylene (PP)</b></td><td><b>Very low</b> (tan δ ~0.0002)</td><td>100V+</td><td><b>✅ Best</b></td></tr>
+  <tr><td><b>C0G / NP0 Ceramic</b></td><td><b>Very low</b></td><td>50V+</td><td><b>✅ Excellent</b> — good for small values (&lt;10 nF)</td></tr>
+  <tr><td>Polyester (Mylar / PET)</td><td>Low (tan δ ~0.01)</td><td>63V+</td><td>✅ Good</td></tr>
+  <tr><td>X7R Ceramic</td><td>Moderate (tan δ ~0.02)</td><td>25V+</td><td>⚠️ Works but higher loss</td></tr>
+  <tr><td>Z5U / Y5V Ceramic</td><td>High</td><td>25V+</td><td>❌ Avoid for resonant circuits</td></tr>
+  <tr><td>Electrolytic</td><td>Very high</td><td>—</td><td>❌ Never — useless at RF</td></tr>
+</table>
+
+<div class="callout info">
+<strong>💡 Tip — Easy Tuning Method:</strong> Get a <b>50–200 pF trimmer capacitor</b> and put it in parallel with your fixed cap. Turn the screw while watching the LED — stop at brightest point. No cap swapping needed!
+</div>
+</section>
+
+<!-- ====== 5. ESP32 CODE ====== -->
+<section>
+<h2>5. ESP32 Code (New API — ledcAttach)</h2>
+
+<div class="code">/**
+ * IRLZ44N Direct Drive — Wireless TX Coil Driver
+ * ==============================================
+ * 
+ * Connections:
+ *   ESP32 GPIO 2 ── 100Ω ── Gate of IRLZ44N
+ *   IRLZ44N Source ── GND
+ *   IRLZ44N Drain ── TX Coil + Tuning Cap (to GND)
+ *   TX Coil other end ── +V (5-12V external supply)
+ *   10kΩ from Gate to GND (pull-down)
+ * 
+ * RX Side:
+ *   Battery (+) ── Filament LED ── Battery (-)
+ *   (Place loop directly on TX coil, 1-5 cm gap)
+ */
+
+// ====== USER CONFIGURABLE PARAMETERS ======
+const int PWM_PIN = 2;            // GPIO 2 → 100Ω → Gate of IRLZ44N
+const int PWM_FREQ = 1000000;     // DEFAULT: 1,000,000 Hz (1 MHz)
+                                   // Try: 500000 (500 kHz), 800000, 900000,
+                                   //       1100000, 1200000 (1.2 MHz)
+                                   // Lower freq = less loss in coil
+                                   // Higher freq = more induced voltage
+const int PWM_RES = 8;            // 8-bit resolution (duty 0-255)
+
+// ====== DUTY CYCLE PRESETS ======
+const int DUTY_50  = 128;         // 50% — default, good starting point
+const int DUTY_25  = 64;          // 25% — lower power, less heat
+const int DUTY_75  = 191;         // 75% — more power
+const int DUTY_100 = 255;         // 100% — MOSFET always ON (no switching!)
+const int DUTY_OFF = 0;           // 0% — TX disabled
+
+// ====== TRACK DUTY FOR SERIAL COMMANDS ======
+int currentDuty = DUTY_50;
+
+void setup() {
+  Serial.begin(115200);
+  delay(500);
+  
+  // === Configure PWM — NEW API (ESP32 Arduino Core v2.x+) ===
+  ledcAttach(PWM_PIN, PWM_FREQ, PWM_RES);
+  
+  Serial.println("================================================");
+  Serial.println("  IRLZ44N Direct Drive — Wireless TX Coil");
+  Serial.println("================================================");
+  Serial.print("  PWM Pin:      GPIO "); Serial.println(PWM_PIN);
+  Serial.print("  Frequency:    "); Serial.print(PWM_FREQ); Serial.println(" Hz");
+  Serial.print("  Resolution:   "); Serial.print(PWM_RES); Serial.println("-bit");
+  Serial.println("================================================");
+  Serial.println();
+  
+  // Start TX at 50% duty
+  currentDuty = DUTY_50;
+  ledcWrite(PWM_PIN, currentDuty);
+  Serial.println("✓ TX ON — 50% duty");
+  Serial.println("  Place RX loop (battery + LED) on the coil");
+  Serial.println();
+  
+  // ====== SERIAL COMMANDS REFERENCE ======
+  Serial.println("Commands (send via Serial Monitor):");
+  Serial.println("  ON  or 1   - TX ON  (50% duty)");
+  Serial.println("  OFF or 0   - TX OFF");
+  Serial.println("  +          - Increase duty by 10");
+  Serial.println("  -          - Decrease duty by 10");
+  Serial.println("  S          - Frequency sweep 800k → 1.2 MHz");
+  Serial.println("  F500       - Set frequency to 500 kHz");
+  Serial.println("  F800       - Set frequency to 800 kHz");
+  Serial.println("  F1000      - Set frequency to 1.0 MHz");
+  Serial.println("  F1200      - Set frequency to 1.2 MHz");
+  Serial.println();
+}
+
+void loop() {
+  if (Serial.available()) {
+    String cmd = Serial.readStringUntil('\n');
+    cmd.trim();
+    cmd.toUpperCase();
+    
+    // === ON / OFF ===
+    if (cmd == "ON" || cmd == "1") {
+      currentDuty = DUTY_50;
+      ledcWrite(PWM_PIN, currentDuty);
+      Serial.print("TX ON — Duty: "); Serial.println(currentDuty);
+    }
+    else if (cmd == "OFF" || cmd == "0") {
+      currentDuty = DUTY_OFF;
+      ledcWrite(PWM_PIN, currentDuty);
+      Serial.println("TX OFF");
+    }
+    
+    // === DUTY CONTROL ===
+    else if (cmd == "+") {
+      currentDuty = min(currentDuty + 10, 255);
+      ledcWrite(PWM_PIN, currentDuty);
+      Serial.print("Duty: "); Serial.print(currentDuty);
+      Serial.print(" ("); Serial.print((currentDuty * 100) / 255); Serial.println("%)");
+    }
+    else if (cmd == "-") {
+      currentDuty = max(currentDuty - 10, 0);
+      ledcWrite(PWM_PIN, currentDuty);
+      Serial.print("Duty: "); Serial.print(currentDuty);
+      Serial.print(" ("); Serial.print((currentDuty * 100) / 255); Serial.println("%)");
+    }
+    
+    // === FREQUENCY SWEEP ===
+    else if (cmd == "S") {
+      Serial.println("=== Frequency Sweep: 800 kHz → 1.2 MHz ===");
+      Serial.println("  Watch the LED — brightest point = resonance!");
+      for (int f = 800000; f <= 1200000; f += 25000) {
+        ledcDetach(PWM_PIN);
+        ledcAttach(PWM_PIN, f, PWM_RES);
+        ledcWrite(PWM_PIN, currentDuty);
+        Serial.print("  "); Serial.print(f); Serial.println(" Hz");
+        delay(1200);  // 1.2 sec per step
+      }
+      // Restore original frequency
+      ledcDetach(PWM_PIN);
+      ledcAttach(PWM_PIN, PWM_FREQ, PWM_RES);
+      ledcWrite(PWM_PIN, currentDuty);
+      Serial.print("Sweep done — back to "); Serial.print(PWM_FREQ); Serial.println(" Hz");
+    }
+    
+    // === SET SPECIFIC FREQUENCY ===
+    else if (cmd.startsWith("F")) {
+      int newFreq = 0;
+      if (cmd == "F500")  newFreq = 500000;
+      else if (cmd == "F600")  newFreq = 600000;
+      else if (cmd == "F700")  newFreq = 700000;
+      else if (cmd == "F800")  newFreq = 800000;
+      else if (cmd == "F900")  newFreq = 900000;
+      else if (cmd == "F1000") newFreq = 1000000;
+      else if (cmd == "F1100") newFreq = 1100000;
+      else if (cmd == "F1200") newFreq = 1200000;
+      
+      if (newFreq > 0) {
+        ledcDetach(PWM_PIN);
+        ledcAttach(PWM_PIN, newFreq, PWM_RES);
+        ledcWrite(PWM_PIN, currentDuty);
+        Serial.print("Frequency set to: "); Serial.print(newFreq); Serial.println(" Hz");
+      } else {
+        Serial.println("Unknown frequency. Try: F500, F800, F1000, F1200");
+      }
+    }
+    
+    // === HELP ===
+    else if (cmd == "HELP" || cmd == "H") {
+      Serial.println("Commands: ON, OFF, +, -, S, F500, F800, F1000, F1200, HELP");
+    }
+  }
+  
+  delay(50);
+}</div>
+
+<div class="callout info">
+<strong>💡 Quick Start Code (Minimal):</strong><br>
+Just copy this if you don't need the serial commands:
+</div>
+
+<div class="code">const int PWM_PIN = 2;
+const int PWM_FREQ = 1000000;
+const int PWM_RES = 8;
+
+void setup() {
+  Serial.begin(115200);
+  ledcAttach(PWM_PIN, PWM_FREQ, PWM_RES);
+  ledcWrite(PWM_PIN, 128);    // 50% duty = TX ON
+  Serial.println("TX ON @ 1 MHz");
+}
+
+void loop() {
+  delay(1000);
+}</div>
+</section>
+
+<!-- ====== 6. POWER SUPPLY ====== -->
+<section>
+<h2>6. Power Supply Guide</h2>
+
+<h3>6.1 Supply Voltage vs Performance</h3>
+<table>
+  <tr><th>Supply Voltage</th><th>Min Current</th><th>Approx. Power to Coil</th><th>Range (10T, 5cm coil)</th><th>MOSFET Temp (with heatsink)</th></tr>
+  <tr><td><b>5 V</b></td><td>1 A</td><td>~3–4 W</td><td>1–3 cm</td><td>~45°C (warm)</td></tr>
+  <tr><td><b>9 V</b></td><td>1.5 A</td><td>~7–8 W</td><td>2–5 cm</td><td>~60°C (hot)</td></tr>
+  <tr><td><b>12 V</b></td><td><b>2–3 A</b></td><td><b>~10–12 W</b></td><td><b>3–7 cm</b></td><td>~75°C (use heatsink!)</td></tr>
+</table>
+
+<h3>6.2 Power Supply Options</h3>
+<table>
+  <tr><th>Type</th><th>Voltage</th><th>Current</th><th>Works for</th><th>Notes</th></tr>
+  <tr><td>USB charger (phone brick)</td><td>5V</td><td>2–3 A</td><td>Low power test</td><td>Cut and strip an old USB cable</td></tr>
+  <tr><td>Laptop power brick</td><td>9–12 V</td><td>2–5 A</td><td>Full power ✅</td><td>Many old laptop PSUs work perfectly</td></tr>
+  <tr><td>12V LED strip supply</td><td>12 V</td><td>2–5 A</td><td>Full power ✅</td><td>Cheap on Amazon/eBay</td></tr>
+  <tr><td>Bench power supply</td><td>0–12 V</td><td>0–3 A</td><td>Best — adjustable</td><td>Can sweep voltage while testing</td></tr>
+  <tr><td>12V SLA battery</td><td>12 V</td><td>High</td><td>Full power ✅</td><td>For portable use</td></tr>
+</table>
+
+<h3>6.3 Wiring the External Supply</h3>
+<div class="diagram">
+                ┌──────────────────────────┐
+                │   EXTERNAL DC SUPPLY      │
+                │   5V – 12V, ≥1–3A        │
+                │                          │
+                │  (+) ─────────────────────┼─── To Coil end 2
+                │                          │
+                │  (-) ─────────────────────┼─── To Common GND
+                └──────────────────────────┘
+                                            │
+                ┌──────────────────────────┐│
+                │      ESP32 (USB)         ││
+                │                          ││
+                │  GPIO 2 ──100Ω──────────┼┼── Gate of IRLZ44N
+                │                          ││
+                │  GND  ───────────────────┼┘── Common GND
+                └──────────────────────────┘
+                                            │
+                                          Common GND Bus
+                                          (Source, Cap, PSU -, ESP32 GND, 10kΩ)
+</div>
+
+<div class="danger">
+<strong>⚠️ CRITICAL:</strong><br>
+- For &gt;5W, <b>DO NOT power the coil from ESP32's 5V pin</b>. The ESP32 regulator can't supply &gt;1A.<br>
+- Always use a <b>separate external supply</b> for the coil/MOSFET.<br>
+- <b>Always connect supply GND to ESP32 GND</b> — common ground is mandatory!<br>
+- Start at <b>5V first</b>, verify operation, then step up to 9V, then 12V.
+</div>
+</section>
+
+<!-- ====== 7. STEP-BY-STEP BUILD ====== -->
+<section>
+<h2>7. Step-by-Step Build Instructions</h2>
+
+<div class="step">
+<strong>Step 1:</strong> Wind or Prepare the TX Coil
+</div>
+<ul>
+  <li><b>If using 18 AWG ready-made coil:</b> Already done! Just scrape/tin the two wire ends if needed.</li>
+  <li><b>If winding your own (20 AWG):</b>
+    <ul>
+      <li>Cut ~2.5 m of 20 AWG magnet wire</li>
+      <li>Wind <b>10 turns</b> in a flat spiral around an ~8 cm round object</li>
+      <li>OD should be ~10 cm, ID ~4 cm</li>
+      <li>Remove from jig, glue at 2–3 points to hold shape</li>
+      <li>Scrape enamel off last 1 cm of both ends until shiny, then tin with solder</li>
+    </ul>
+  </li>
+</ul>
+
+<div class="step">
+<strong>Step 2:</strong> Mount the IRLZ44N
+</div>
+<ul>
+  <li>Identify pins: <b>Gate (left), Drain (center), Source (right)</b> — flat face toward you</li>
+  <li>Insert into breadboard or solder onto perfboard</li>
+  <li>Attach <b>heatsink clip</b> if running &gt;30 seconds or &gt;5W</li>
+</ul>
+
+<div class="step">
+<strong>Step 3:</strong> Connect Gate Circuit
+</div>
+<ul>
+  <li><b>100Ω resistor:</b> Between ESP32 GPIO 2 and Gate of IRLZ44N</li>
+  <li><b>10kΩ resistor:</b> Between Gate of IRLZ44N and GND</li>
+  <li><i>These two resistors are the only parts between ESP32 and the MOSFET</i></li>
+</ul>
+
+<div class="step">
+<strong>Step 4:</strong> Connect the LC Tank (Coil + Cap)
+</div>
+<ul>
+  <li>Connect <b>Drain (center)</b> of IRLZ44N to <b>one end of the TX coil</b></li>
+  <li>Connect <b>the other end of the TX coil</b> to <b>+V of external supply</b></li>
+  <li>Connect <b>tuning capacitor</b> between <b>Drain</b> and <b>GND</b></li>
+  <li>Result: Coil and cap are in parallel — one end at Drain, other end at +V and GND respectively</li>
+</ul>
+
+<div class="step">
+<strong>Step 5:</strong> Connect Power and Ground
+</div>
+<ul>
+  <li>Connect <b>Source (right)</b> of IRLZ44N to <b>common GND</b></li>
+  <li>Connect <b>ESP32 GND</b> to <b>common GND</b></li>
+  <li>Connect <b>external supply (−)</b> to <b>common GND</b></li>
+  <li>Connect <b>cap GND leg</b> to <b>common GND</b></li>
+  <li>Connect <b>10kΩ GND end</b> to <b>common GND</b></li>
+  <li><b>All grounds MUST be connected together</b></li>
+  <li>Add <b>100 µF + 0.1 µF</b> caps across +V and GND near the coil connection</li>
+</ul>
+
+<div class="step">
+<strong>Step 6:</strong> Build the RX Loop (Battery + LED)
+</div>
+<ul>
+  <li>Solder ~15 cm wire from <b>battery (+)</b> to <b>one LED lead</b></li>
+  <li>Solder ~15 cm wire from <b>other LED lead</b> to <b>battery (−)</b></li>
+  <li>Shape into a <b>circle ~5–10 cm diameter</b></li>
+  <li>✅ <b>Verify:</b> LED should light from battery alone — confirms closed loop</li>
+  <li><i>This is the ENTIRE RX side — no other components needed</i></li>
+</ul>
+
+<div class="step">
+<strong>Step 7:</strong> Upload the Code
+</div>
+<ul>
+  <li>Open Arduino IDE, select <b>ESP32 Dev Module</b> board</li>
+  <li>Select correct COM port</li>
+  <li>Copy the code from Section 5 and click <b>Upload</b></li>
+  <li>Open Serial Monitor at <b>115200 baud</b> to see status and send commands</li>
+</ul>
+
+<div class="step">
+<strong>Step 8:</strong> Power Up &amp; Test!
+</div>
+<ul>
+  <li>Connect external supply (start at <b>5V</b> for first test)</li>
+  <li>Place the <b>RX loop directly on top of the TX coil</b> (~1 cm gap)</li>
+  <li>✅ <b>Expected result:</b> LED gets <b>visibly brighter</b> when TX is on</li>
+  <li>Move loop up/down — brightness changes with distance</li>
+  <li>If LED doesn't change → try different capacitor values or sweep frequency</li>
+</ul>
+</section>
+
+<!-- ====== 8. OPTIONAL ENHANCEMENTS ====== -->
+<section>
+<h2>8. Optional Enhancements (Better Accuracy &amp; Functionality)</h2>
+
+<h3>8.1 Add a Flyback Diode</h3>
+<p>A <b>1N4148 fast diode</b> across the coil protects the MOSFET from voltage spikes when switching:</p>
+<ul>
+  <li><b>Cathode (banded end)</b> → +V supply (coil end 2)</li>
+  <li><b>Anode</b> → Drain of IRLZ44N (coil end 1)</li>
+</ul>
+<p>This is <b>optional</b> — IRLZ44N has built-in body diode, but an external fast diode helps at 1 MHz.</p>
+
+<h3>8.2 Add Decoupling Capacitors</h3>
+<table>
+  <tr><th>Capacitor</th><th>Placement</th><th>Purpose</th></tr>
+  <tr><td>100 µF electrolytic</td><td>Across +V and GND near coil connection</td><td>Bulk energy storage — prevents voltage sag during switching</td></tr>
+  <tr><td>0.1 µF (100 nF) ceramic</td><td>Across +V and GND, very close to MOSFET</td><td>High-frequency bypass — absorbs fast switching noise</td></tr>
+</table>
+
+<h3>8.3 Use a Trimmer Capacitor for Easy Tuning</h3>
+<p>Add a <b>50–200 pF trimmer cap</b> in parallel with your main tuning cap. While watching the LED, turn the trimmer screw slowly — stop when the LED is brightest. No cap swapping needed!</p>
+
+<h3>8.4 Add an On/Off Switch</h3>
+<p>Put a <b>SPST switch</b> in the +V line between the external supply and the coil. This lets you turn the TX on/off without unplugging.</p>
+
+<h3>8.5 Add an LED Indicator</h3>
+<p>Put a <b>1kΩ resistor + regular LED</b> in series from the external supply +V to GND. Lights up when the supply is active. Optional but helpful.</p>
+
+<h3>8.6 Use a Heatsink</h3>
+<p>TO-220 clip-on heatsinks cost ~$0.30. At 12W, the IRLZ44N can reach 75°C without one. With a heatsink, it stays below 50°C. <b>Highly recommended</b> for runs longer than 30 seconds.</p>
+
+<h3>8.7 Better Wiring for High Current</h3>
+<ul>
+  <li>Use <b>18–20 AWG wire</b> for the +V and GND power paths</li>
+  <li>Keep the wires from supply → coil → MOSFET as <b>short as possible</b></li>
+  <li>Tie all GND wires to a <b>single point</b> (star ground) to reduce noise</li>
+</ul>
+
+<h3>8.8 Complete Enhanced Circuit Diagram</h3>
+<div class="diagram">
+                     EXTERNAL SUPPLY 5-12V DC
+                          │
+                      [ON/OFF Switch]
+                          │
+                          ├───── 100µF ──── 0.1µF ──── GND
+                          │
+                          ├───── 1kΩ ── LED indicator ── GND
+                          │
+                          └─────────────────────────────────┐
+                                                              │
+                                                     ┌───────┴──────┐
+                                                     │              │
+                                                 TX COIL ───┬───────┘
+                                                 (18/20 AWG) │
+                                                     │      │
+                                                     │ CAP │
+                                                     │(tune)│
+                                                     │      │
+                                                     └──┬───┘
+                                                        │
+                                                    ┌───┴───────┐
+                                                    │           │
+                                                    │  IRLZ44N  │
+                                                    │           │
+                                               G ───┤           │
+                                                    │    D      ├── (to coil+cap)
+                                                    │           │
+                                               S ───┤           │
+                                                    │           │
+                                                    └───┬───────┘
+                                                        │
+                                                       GND
+                                                        │
+                    ┌──── 1N4148 (flyback) ──────────────┤
+                    │  (cathode → +V, anode → Drain)     │
+                    │                                    │
+                    └────────────────────────────────────┤
+                                                         │
+                    ┌─────────────────────────────────────┘
+                    │
+                    │  100Ω ────┬─── Gate
+                    │           │
+                    │        [10kΩ] ─── GND
+                    │
+               ESP32 GPIO 2
+               ESP32 GND ────────────────────────────────── GND
+</div>
+</section>
+
+<!-- ====== 9. TUNING ====== -->
+<section>
+<h2>9. Tuning Procedure — Find Resonance</h2>
+
+<h3>Method 1: Serial Sweep (Easiest — No Part Swapping)</h3>
+<ol>
+  <li>Upload the full code from Section 5</li>
+  <li>Open Serial Monitor</li>
+  <li>Type <b>'S'</b> and press Enter</li>
+  <li>ESP32 sweeps <b>800 kHz → 1.2 MHz</b> in 25 kHz steps</li>
+  <li><b>Watch the LED</b> — the brightest point = resonant frequency</li>
+  <li>Type <b>F</b> followed by the best frequency (e.g., F950 for 950 kHz)</li>
+  <li>Permanently update <code>PWM_FREQ</code> in the code</li>
+</ol>
+
+<h3>Method 2: Capacitor Swapping (If No Serial Monitor)</h3>
+<ol>
+  <li>Start with the capacitor value from Section 4 tables</li>
+  <li>Place RX loop on coil, observe LED brightness</li>
+  <li>Try <b>3–4 different values</b> around the target</li>
+  <li>The cap that makes the LED <b>brightest</b> = resonance</li>
+</ol>
+<table>
+  <tr><th>Your Coil</th><th>Start With</th><th>Then Try</th></tr>
+  <tr><td>18 AWG, 10T, 5 cm OD</td><td><b>4700 pF</b></td><td>3300, 5600, 6800 pF</td></tr>
+  <tr><td>18 AWG, 10T, 7 cm OD</td><td><b>2700 pF</b></td><td>2200, 3300, 4700 pF</td></tr>
+  <tr><td>18 AWG, 10T, 10 cm OD</td><td><b>1500 pF</b></td><td>1200, 1800, 2200 pF</td></tr>
+  <tr><td>20 AWG, 10T, 10 cm OD</td><td><b>1500 pF</b></td><td>1200, 1800, 2200 pF</td></tr>
+  <tr><td>20 AWG, 10T, 5 cm OD</td><td><b>4700 pF</b></td><td>3300, 5600 pF</td></tr>
+</table>
+
+<h3>Method 3: Trimmer Cap (Best Once You're Close)</h3>
+<ol>
+  <li>Put a <b>50–200 pF trimmer</b> in parallel with your closest fixed cap</li>
+  <li>Slowly turn the trimmer screw while watching the LED</li>
+  <li>Stop at the <b>brightest point</b></li>
+  <li><i>This gives you the finest precision</i></li>
+</ol>
+
+<h3>Method 4: Oscilloscope (If You Have One)</h3>
+<ol>
+  <li>Probe across the TX coil (or Drain to GND)</li>
+  <li>Look for the highest <b>peak-to-peak voltage</b></li>
+  <li>At resonance, the voltage will be <b>2–5× higher</b> than the supply voltage</li>
+  <li>Tune cap or frequency for the <b>maximum Vpp</b></li>
+</ol>
+
+<div class="callout info">
+<strong>💡 Pro Tip:</strong> Don't overthink tuning. Just try a few capacitor values and pick the one that makes the LED brightest. The difference between OK and perfect resonance is visually obvious — the LED will suddenly jump in brightness.
+</div>
+</section>
+
+<!-- ====== 10. TROUBLESHOOTING ====== -->
+<section>
+<h2>10. Troubleshooting Guide</h2>
+
+<table>
+  <tr><th style="width:25%">Problem</th><th style="width:40%">Likely Cause</th><th style="width:35%">Fix</th></tr>
+  <tr><td>LED doesn't change at all</td><td>LC tank not at resonance; wrong cap; loop too far; MOSFET not switching</td><td>Try 3–4 cap values; sweep frequency; bring loop &lt;1 cm; check Gate voltage with multimeter</td></tr>
+  <tr><td>LED changes very dimly</td><td>Weak coupling; low supply voltage; too few coil turns</td><td>Increase supply to 9V/12V; reduce gap; try 12 turns; verify cap is close to resonance</td></tr>
+  <tr><td>MOSFET gets very hot (too hot to touch)</td><td>Not fully turning ON; duty too low; no heatsink; switching loss</td><td>Verify 100Ω resistor; check Gate sees 3.3V; add heatsink; reduce duty to 25%; lower supply voltage</td></tr>
+  <tr><td>ESP32 resets when TX turns on</td><td>Power supply sagging; ground loop; ESP32 brownout</td><td>Add 100µF + 0.1µF caps; use thicker power wires; check common ground; lower frequency to 500 kHz</td></tr>
+  <tr><td>Coil gets hot</td><td>Too much current for wire gauge; off-resonance; duty too high</td><td>Reduce duty to 25%; lower supply to 5V; increase to 12 turns (higher L = less current)</td></tr>
+  <tr><td>Nothing works at any cap value</td><td>MOSFET damaged; LED is standard polarized (not filament); wiring error</td><td>Replace IRLZ44N; use non-polarized filament LED; re-check all connections against schematic</td></tr>
+  <tr><td>RX loop / battery gets warm</td><td>Too much power induced; AC flowing through battery</td><td>Reduce gap; lower supply voltage; switch to NiMH battery; limit run time</td></tr>
+  <tr><td>LED flickers visibly</td><td>1 MHz is too fast to see — flicker indicates loose connection or unstable supply</td><td>Check all solder joints; tighten breadboard connections; add decoupling caps</td></tr>
+  <tr><td>Brightness varies when moving loop</td><td>Normal — magnetic field is not uniform; coupling changes with position</td><td>Find the center of the coil for max brightness; keep loop parallel to coil</td></tr>
+  <tr><td>No serial output from ESP32</td><td>Wrong baud rate; wrong COM port; CH340 driver not installed</td><td>Set Serial Monitor to 115200; install CP210x/CH340 drivers; try a different USB cable</td></tr>
+</table>
+</section>
+
+<!-- ====== 11. CHECKLIST ====== -->
+<section>
+<h2>✅ Final Pre-Power Checklist</h2>
+<p>Check <b>every item</b> before connecting power:</p>
+
+<table>
+  <tr><th style="width:5%">☐</th><th style="width:35%">Check</th><th style="width:60%">Details</th></tr>
+  <tr><td>☐</td><td>IRLZ44N orientation</td><td>Flat face toward you: <b>G</b> left, <b>D</b> center, <b>S</b> right</td></tr>
+  <tr><td>☐</td><td>100Ω gate resistor present</td><td>Between ESP32 GPIO 2 and Gate. ⛔ Never connect GPIO directly to Gate!</td></tr>
+  <tr><td>☐</td><td>10kΩ pull-down present</td><td>Between Gate and GND — prevents floating during ESP32 boot</td></tr>
+  <tr><td>☐</td><td>Coil ends properly prepared</td><td>Enamel scraped off (if magnet wire) or insulation stripped; ends tinned</td></tr>
+  <tr><td>☐</td><td>Tuning cap installed</td><td>Between Drain and GND (parallel with coil from Drain's perspective)</td></tr>
+  <tr><td>☐</td><td>Coil other end to +V supply</td><td>Not to GND! Coil is between +V and Drain</td></tr>
+  <tr><td>☐</td><td>Source to GND</td><td>IRLZ44N Source connected to common GND</td></tr>
+  <tr><td>☐</td><td>All grounds common</td><td>ESP32 GND + Source + PSU (−) + cap GND + 10kΩ GND — all connected</td></tr>
+  <tr><td>☐</td><td>Decoupling caps installed</td><td>100 µF + 0.1 µF across +V and GND near coil</td></tr>
+  <tr><td>☐</td><td>External supply NOT connected to ESP32 5V</td><td>External supply powers only the coil/MOSFET. ESP32 has its own USB power.</td></tr>
+  <tr><td>☐</td><td>RX loop is closed</td><td>Battery → wire → LED → wire → battery. LED lights from battery alone.</td></tr>
+  <tr><td>☐</td><td>Battery type is safe</td><td><b>NiMH / NiCd / Alkaline</b> only — <b>NO</b> Li-ion/Li-Po without BMS!</td></tr>
+  <tr><td>☐</td><td>Supply set to lowest voltage first</td><td>Start at <b>5V</b> for initial test, then increase to 9V, then 12V</td></tr>
+  <tr><td>☐</td><td>Heatsink attached (if needed)</td><td>For runs &gt;30s or &gt;5W — clip-on TO-220 heatsink</td></tr>
+  <tr><td>☐</td><td>Code uploaded</td><td>ESP32 programmed with the correct PWM frequency</td></tr>
+  <tr><td>☐</td><td>USB cable is data+power</td><td>Not a charge-only cable — ESP32 needs data lines for programming</td></tr>
+</table>
+</section>
+
+<!-- ====== 12. QUICK REFERENCE ====== -->
+<section>
+<h2>📄 Quick Reference Card</h2>
+
+<table>
+  <tr><th style="width:35%">Parameter</th><th style="width:65%">Value</th></tr>
+  <tr><td><b>ESP32 GPIO pin</b></td><td><b>GPIO 2</b></td></tr>
+  <tr><td><b>Gate series resistor</b></td><td><b>100 Ω</b></td></tr>
+  <tr><td><b>Gate pull-down resistor</b></td><td><b>10 kΩ</b> to GND</td></tr>
+  <tr><td><b>MOSFET</b></td><td><b>IRLZ44N</b> (logic-level N-channel)</td></tr>
+  <tr><td><b>PWM frequency (default)</b></td><td><b>1,000,000 Hz (1 MHz)</b></td></tr>
+  <tr><td><b>Alternative frequencies</b></td><td>500 kHz, 800 kHz, 900 kHz, 1.1 MHz, 1.2 MHz</td></tr>
+  <tr><td><b>PWM duty (ON)</b></td><td><b>128</b> (50% of 255)</td></tr>
+  <tr><td><b>Supply voltage</b></td><td><b>5–12 V DC external</b></td></tr>
+  <tr><td><b>Supply current</b></td><td><b>1–3 A</b> (depending on power level)</td></tr>
+  <tr><td><b>TX coil (18 AWG, ready-made)</b></td><td><b>10 turns, 5 cm OD</b> → cap ~4700 pF</td></tr>
+  <tr><td><b>TX coil (20 AWG, self-wound)</b></td><td><b>10 turns, 10 cm OD</b> → cap ~1500 pF</td></tr>
+  <tr><td><b>Tuning capacitor type</b></td><td><b>Polypropylene or C0G/NP0 ceramic</b></td></tr>
+  <tr><td><b>Bulk decoupling</b></td><td><b>100 µF</b> electrolytic + <b>0.1 µF</b> ceramic</td></tr>
+  <tr><td><b>Flyback diode (optional)</b></td><td><b>1N4148</b> (cathode to +V, anode to Drain)</td></tr>
+  <tr><td><b>RX side components</b></td><td><b>Battery + filament LED only</b> — no extras!</td></tr>
+  <tr><td><b>RX loop size</b></td><td><b>~5–10 cm diameter</b> (match TX coil size)</td></tr>
+  <tr><td><b>RX battery type</b></td><td><b>NiMH / NiCd / Alkaline only</b></td></tr>
+  <tr><td><b>Coupling distance</b></td><td><b>1–5 cm</b> (closer = brighter)</td></tr>
+  <tr><td><b>Expected brightness increase</b></td><td><b>2–5× brighter</b> at 1 cm, 12W</td></tr>
+</table>
+</section>
+
+<!-- ====== FOOTER ====== -->
+<div style="text-align:center; padding:20px; color:#888; font-size:13px;">
+<p>IRLZ44N Wireless TX Coil Driver — Complete Build Guide &nbsp;|&nbsp; 2026</p>
+<p>ESP32 + IRLZ44N + 18/20 AWG Coil + Battery + Filament LED = Done.</p>
+</div>
+
+</div>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"1954b47c125f43f8b4338b3c4f804e4f","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a0ce3b7b09cdb2cc',t:'MTc4MTY1OTIzMg=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
